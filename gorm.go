@@ -22,15 +22,11 @@ type DBParam struct {
 	MaxConn  int
 }
 
-type KDB struct {
-	db *gorm.DB
-}
-
-func OpenDB(param DBParam) (*KDB, error) {
+func OpenDB(param DBParam) (*gorm.DB, error) {
 	dbLock.Lock()
 	defer dbLock.Unlock()
 	if rdb, ok := mapDb[fmt.Sprintf("%s:%s", param.Host, param.DBName)]; ok {
-		return &KDB{db: rdb}, nil
+		return rdb, nil
 	} else {
 		conn := fmt.Sprintf("%s:%s@tcp(%s)/%s?charset=utf8mb4&parseTime=True&loc=%s", param.User, param.Password, param.Host, param.DBName, url.QueryEscape("Asia/Shanghai"))
 		db, err := gorm.Open(mysql.Open(conn), &gorm.Config{NamingStrategy: schema.NamingStrategy{SingularTable: true}})
@@ -58,6 +54,6 @@ func OpenDB(param DBParam) (*KDB, error) {
 		//设置连接可复用的最大时间
 		sqlDB.SetConnMaxLifetime(10 * time.Minute)
 		mapDb[fmt.Sprintf("%s:%s", param.Host, param.DBName)] = db
-		return &KDB{db: rdb}, nil
+		return rdb, nil
 	}
 }
