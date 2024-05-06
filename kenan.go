@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/louismax/kenan/core"
+	"gorm.io/gorm"
 	"time"
 )
 
@@ -27,6 +28,8 @@ func Init(svrTag string, opts ...core.KenanOption) error {
 	ParsingLocalConfig()
 
 	LogInit()
+
+	mapDb = make(map[string]*gorm.DB)
 
 	return nil
 }

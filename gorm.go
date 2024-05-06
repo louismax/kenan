@@ -54,6 +54,6 @@ func OpenDB(param DBParam) (*gorm.DB, error) {
 		//设置连接可复用的最大时间
 		sqlDB.SetConnMaxLifetime(10 * time.Minute)
 		mapDb[fmt.Sprintf("%s:%s", param.Host, param.DBName)] = db
-		return rdb, nil
+		return db, nil
 	}
 }
