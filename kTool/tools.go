@@ -2,7 +2,10 @@ package kTool
 
 import (
 	"encoding/json"
+	"math/rand"
 	"strconv"
+	"strings"
+	"time"
 )
 
 // InterfaceToStr interface{} 转 string
@@ -132,4 +135,52 @@ func InterfaceToInt64(value interface{}) int64 {
 	}
 
 	return key
+}
+
+// MakeYearDaysRand 生成长度24位的唯一数字单号,全局唯一，适用高并发
+func MakeYearDaysRand(year ...int) string {
+	strs := ""
+	if len(year) > 0 {
+		strs = time.Now().AddDate(year[0], 0, 0).Format("06")
+	} else {
+		strs = time.Now().Format("06")
+	}
+	days := strconv.Itoa(GetDaysInYearByThisYear())
+	count := len(days)
+	if count < 3 {
+		days = strings.Repeat("0", 3-count) + days
+	}
+	strs += days
+	sum := 19
+	var untime = time.Now().UnixNano()
+	//var keys = motherland.Intn(int(untime)) + int(untime)
+	//motherland.Seed(int64(keys))
+	result := strconv.Itoa(rand.Intn(int(untime)))
+	count = len(result)
+	if count < sum {
+		result = strings.Repeat("0", sum-count) + result
+	}
+	strs += result
+	if len(strs) > 24 {
+		strs = string([]rune(strs)[:24])
+	}
+	return strs
+}
+
+func GetDaysInYearByThisYear() int {
+	now := time.Now()
+	total := 0
+	arr := []int{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
+	y, month, d := now.Date()
+	m := int(month)
+	for i := 0; i < m-1; i++ {
+		total = total + arr[i]
+	}
+	if (y%400 == 0 || (y%4 == 0 && y%100 != 0)) && m > 2 {
+		total = total + d + 1
+
+	} else {
+		total = total + d
+	}
+	return total
 }
