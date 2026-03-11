@@ -1,11 +1,14 @@
 package kTool
 
 import (
+	"crypto/md5"
 	cryptorand "crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
+	"net"
 	"reflect"
 	"strconv"
 	"strings"
@@ -321,4 +324,58 @@ func ComplexAnalysis(body interface{}, headerObj interface{}) error {
 		return errors.New("headerObj必须是一个指针对象")
 	}
 	return json.Unmarshal(body.([]byte), &headerObj)
+}
+
+// GetInternal 获取第一个内网IP
+func GetInternal() string {
+	netInterfaces, err := net.Interfaces()
+	if err != nil {
+		//fmt.Println("net.Interfaces failed, err:", err.Error())
+		return "127.0.0.1"
+	}
+	for i := 0; i < len(netInterfaces); i++ {
+		if (netInterfaces[i].Flags&net.FlagUp) != 0 && !strings.Contains(netInterfaces[i].Name, "vEthernet") { //排除Hyper-V虚拟机 虚拟网卡
+			addrs, _ := netInterfaces[i].Addrs()
+			for _, address := range addrs {
+				if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+					if strings.Contains(ipnet.IP.String(), "169.254") { //本地机器Docker或虚拟机影响出现多个回环地址，需要排除
+						continue
+					}
+					if ipnet.IP.To4() != nil {
+						//fmt.Println(ipnet.IP.String())
+						return ipnet.IP.String()
+					}
+				}
+			}
+		}
+	}
+	return "127.0.0.1"
+}
+
+// MD5 md5加密
+func MD5(format string, a ...interface{}) string {
+	h := md5.New()
+	h.Write([]byte(fmt.Sprintf(format, a...)))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func FormatDbTime(dt string) string {
+	if strings.Contains(dt, "T") {
+		tm, _ := time.Parse("2006-01-02T15:04:05Z07:00", dt)
+		//数据库时区和time.now的时区不一致
+		return tm.Format("2006-01-02 15:04:05")
+	} else {
+		return dt
+	}
+}
+
+// FormatDbDate 数据库日期转正常日期
+func FormatDbDate(dt string) string {
+	if strings.Contains(dt, "T") {
+		tm, _ := time.Parse("2006-01-02T15:04:05Z07:00", dt)
+		//数据库时区和time.now的时区不一致
+		return tm.Format("2006-01-02")
+	} else {
+		return dt
+	}
 }
