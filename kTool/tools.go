@@ -379,3 +379,15 @@ func FormatDbDate(dt string) string {
 		return dt
 	}
 }
+
+// GetPageIndexSize 获取分页参数 返回 offset,limit
+func GetPageIndexSize(pageIndex, pageSize int) (int, int) {
+	if pageIndex < 1 {
+		pageIndex = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10
+	}
+	pageIndex = (pageIndex - 1) * pageSize
+	return pageIndex, pageSize
+}

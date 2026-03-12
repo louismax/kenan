@@ -70,7 +70,7 @@ func RpcNewClient(node string) (client.XClient, error) {
 	option.HeartbeatInterval = 5 * time.Second //心跳检测间隔，5秒一次
 
 	// 内网环境可以设置较短的检测间隔
-	option.TCPKeepAlivePeriod = 240 * time.Second // 240秒探测
+	option.TCPKeepAlivePeriod = 120 * time.Second // 240秒探测
 
 	option.IdleTimeout = 0 // 禁用空闲超时
 
@@ -87,6 +87,7 @@ func RpcNewClient(node string) (client.XClient, error) {
 func RegisterMS(svrArity interface{}, port string, limits ...int64) error {
 	flag.Parse()
 	addr := flag.String("addr", kTool.GetInternal()+":"+port, "service address")
+	LogInfo("微服务注册在:tcp@%s", *addr)
 	//注册服务
 	s := server.NewServer()
 	r := &serverplugin.EtcdV3RegisterPlugin{
@@ -94,7 +95,7 @@ func RegisterMS(svrArity interface{}, port string, limits ...int64) error {
 		EtcdServers:    []string{*etcdURL},
 		BasePath:       *etcdBasePath,
 		Metrics:        metrics.NewRegistry(),
-		UpdateInterval: 1 * time.Second,
+		UpdateInterval: time.Second,
 	}
 	err := r.Start()
 	if err != nil {
