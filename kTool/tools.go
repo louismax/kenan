@@ -1,10 +1,15 @@
 package kTool
 
 import (
+	"crypto/md5"
 	cryptorand "crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/rand"
+	"net"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -192,4 +197,197 @@ func GetRandomString(n int) string {
 	randBytes := make([]byte, n/2)
 	_, _ = cryptorand.Read(randBytes)
 	return fmt.Sprintf("%x", randBytes)
+}
+
+// GetTagFieldName 获取结构体中Tag的值，如果没有tag则返回字段值
+func GetTagFieldName(structName interface{}) []string {
+	t := reflect.TypeOf(structName)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		fmt.Println("Check type error not Struct")
+		return nil
+	}
+	fieldNum := t.NumField()
+	result := make([]string, 0, fieldNum)
+	for i := 0; i < fieldNum; i++ {
+		tagName := t.Field(i).Name
+		tags := strings.Split(string(t.Field(i).Tag), "\"")
+		if len(tags) > 1 {
+			tagName = tags[1]
+		}
+		result = append(result, tagName)
+	}
+	return result
+}
+
+// MapStringToStruct  map[string]string转结构体（map的key大小写不敏感）  obj必须传结构体的指针类型 strictMode 严格模式，会检查kvs的值是否都映射到obj
+func MapStringToStruct(kvs map[string]string, obj interface{}, strictMode bool) error {
+	if reflect.TypeOf(obj).Kind() != reflect.Ptr {
+		return errors.New("obj should be ptr type")
+	}
+	oType := reflect.TypeOf(obj).Elem()
+	oVal := reflect.ValueOf(obj).Elem()
+
+	m := map[string]string{}
+	for k, v := range kvs {
+		m[strings.ToLower(k)] = v
+	}
+
+	setCnt := 0
+	for i := 0; i < oVal.NumField(); i++ {
+		if !oVal.Field(i).CanInterface() {
+			continue
+		}
+		key := strings.ToLower(oType.Field(i).Name)
+
+		paramType := oType.Field(i).Type.Kind()
+
+		val, exist := m[key]
+		if !exist {
+			key = strings.ToLower(oType.Field(i).Tag.Get("json"))
+			val, exist = m[key]
+			if !exist {
+				continue
+			}
+		}
+		switch paramType {
+		case reflect.Int:
+			setCnt++
+			v, _ := strconv.ParseInt(val, 10, 64)
+			oVal.Field(i).SetInt(v)
+		case reflect.Int8:
+			setCnt++
+			v, _ := strconv.ParseInt(val, 10, 64)
+			oVal.Field(i).SetInt(v)
+		case reflect.Int32:
+			setCnt++
+			v, _ := strconv.ParseInt(val, 10, 64)
+			oVal.Field(i).SetInt(v)
+		case reflect.Int64:
+			setCnt++
+			v, _ := strconv.ParseInt(val, 10, 64)
+			oVal.Field(i).SetInt(v)
+		case reflect.Uint8:
+			setCnt++
+			v, _ := strconv.Atoi(val)
+			oVal.Field(i).SetUint(uint64(v))
+		case reflect.Uint:
+			setCnt++
+			v, _ := strconv.Atoi(val)
+			oVal.Field(i).SetUint(uint64(v))
+		case reflect.Uint32:
+			setCnt++
+			v, _ := strconv.Atoi(val)
+			oVal.Field(i).SetUint(uint64(v))
+		case reflect.String:
+			setCnt++
+			oVal.Field(i).SetString(val)
+		case reflect.Float64:
+			setCnt++
+			v, _ := strconv.ParseFloat(val, 64)
+			oVal.Field(i).SetFloat(v)
+		default:
+			panic("unhandled default case")
+		}
+	}
+	if strictMode && setCnt != len(kvs) {
+		return errors.New("exist key not match obj field, please check")
+	}
+	return nil
+}
+
+// StructConvertMapByTag 指定tag的struct转map
+func StructConvertMapByTag(obj interface{}, tagName ...string) map[string]interface{} {
+	t := reflect.TypeOf(obj)
+	v := reflect.ValueOf(obj)
+
+	tag := "json"
+	if len(tagName) > 0 {
+		tag = tagName[0]
+	}
+
+	var data = make(map[string]interface{})
+	for i := 0; i < t.NumField(); i++ {
+		fieldName := t.Field(i).Tag.Get(tag)
+		if fieldName != "" && fieldName != "-" {
+			data[fieldName] = v.Field(i).Interface()
+		}
+	}
+	return data
+}
+
+// ComplexAnalysis 解析指定的复杂Data到内存对象
+func ComplexAnalysis(body interface{}, headerObj interface{}) error {
+	if reflect.TypeOf(headerObj).Kind() != reflect.Ptr {
+		return errors.New("headerObj必须是一个指针对象")
+	}
+	return json.Unmarshal(body.([]byte), &headerObj)
+}
+
+// GetInternal 获取第一个内网IP
+func GetInternal() string {
+	netInterfaces, err := net.Interfaces()
+	if err != nil {
+		//fmt.Println("net.Interfaces failed, err:", err.Error())
+		return "127.0.0.1"
+	}
+	for i := 0; i < len(netInterfaces); i++ {
+		if (netInterfaces[i].Flags&net.FlagUp) != 0 && !strings.Contains(netInterfaces[i].Name, "vEthernet") { //排除Hyper-V虚拟机 虚拟网卡
+			addrs, _ := netInterfaces[i].Addrs()
+			for _, address := range addrs {
+				if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+					if strings.Contains(ipnet.IP.String(), "169.254") { //本地机器Docker或虚拟机影响出现多个回环地址，需要排除
+						continue
+					}
+					if ipnet.IP.To4() != nil {
+						//fmt.Println(ipnet.IP.String())
+						return ipnet.IP.String()
+					}
+				}
+			}
+		}
+	}
+	return "127.0.0.1"
+}
+
+// MD5 md5加密
+func MD5(format string, a ...interface{}) string {
+	h := md5.New()
+	h.Write([]byte(fmt.Sprintf(format, a...)))
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+func FormatDbTime(dt string) string {
+	if strings.Contains(dt, "T") {
+		tm, _ := time.Parse("2006-01-02T15:04:05Z07:00", dt)
+		//数据库时区和time.now的时区不一致
+		return tm.Format("2006-01-02 15:04:05")
+	} else {
+		return dt
+	}
+}
+
+// FormatDbDate 数据库日期转正常日期
+func FormatDbDate(dt string) string {
+	if strings.Contains(dt, "T") {
+		tm, _ := time.Parse("2006-01-02T15:04:05Z07:00", dt)
+		//数据库时区和time.now的时区不一致
+		return tm.Format("2006-01-02")
+	} else {
+		return dt
+	}
+}
+
+// GetPageIndexSize 获取分页参数 返回 offset,limit
+func GetPageIndexSize(pageIndex, pageSize int) (int, int) {
+	if pageIndex < 1 {
+		pageIndex = 1
+	}
+	if pageSize < 1 {
+		pageSize = 10
+	}
+	pageIndex = (pageIndex - 1) * pageSize
+	return pageIndex, pageSize
 }
