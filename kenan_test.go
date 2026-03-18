@@ -1,10 +1,11 @@
 package kenan
 
 import (
-	"github.com/louismax/kenan/core"
-	"github.com/louismax/kenan/kTool"
 	"testing"
 	"time"
+
+	"github.com/louismax/kenan/core"
+	"github.com/louismax/kenan/kTool"
 )
 
 func TestInit(t *testing.T) {
@@ -53,4 +54,26 @@ func TestComplexAnalysis(t *testing.T) {
 	}
 	obj := TestStruct{}
 	t.Log(kTool.ComplexAnalysis(map[string]string{"aaa": "123"}, &obj))
+}
+
+func TestHttpPost1(t *testing.T) {
+	resp, err := kTool.HTTPPostJson("https://open.feishu.cn/open-apis/bot/v2/hook/d17b01b5-55ab-4239-9b47-922cc27f89ec", map[string]interface{}{
+		"msg_type": "interactive",
+		"card": map[string]interface{}{
+			"type": "template",
+			"data": map[string]interface{}{
+				"template_id": "AAqKBtJDqyJBc",
+				"template_variable": map[string]interface{}{
+					"add_number":      123,
+					"source_platform": "七猫",
+					"sync_time":       "2026-03-18 22:05:01",
+					"duration":        "35s",
+				},
+			},
+		},
+	}, nil)
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(string(resp))
 }
