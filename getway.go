@@ -150,3 +150,52 @@ func (app *Router) CallService(serverPath, fun string, session map[string]interf
 	}
 	return &Result, nil
 }
+
+func (app *Router) CallServiceData(serverPath, fun string, session map[string]interface{}, data interface{}) (*map[string]interface{}, error) {
+	var err error
+
+	var nextArgs Args
+
+	nextArgs.HttpHeader = app.Ctx.Request().Header
+	nextArgs.Session = session
+	nextArgs.Data = data
+
+	var mz client.XClient
+
+	if v, ok := RpcMapSync.Load(serverPath); ok {
+		mz = v.(client.XClient)
+	} else {
+		mz, err = RpcNewClient(serverPath)
+		if err != nil {
+			LogError("客户端注册失败,err:%+v", err)
+			return nil, err
+		}
+		RpcMapSync.Store(serverPath, mz)
+	}
+	var replyX Reply
+	err = mz.Call(context.Background(), fun, &nextArgs, &replyX)
+	if err != nil {
+		LogError("Call服务异常,svr:%s,fun:%s,err:%+v,尝试重新建立连接！\n", serverPath, fun, err)
+		if e := mz.Close(); e != nil { //先尝试关闭之前的连接!
+			LogError("关闭旧的客户端连接异常,err:%+v\n", err)
+		}
+		//重新建立一个连接
+		newMZ, errX := RpcNewClient(serverPath)
+		if errX != nil {
+			LogError("客户端重新注册失败,err:%+v", errX)
+			return nil, errX
+		}
+		RpcMapSync.Store(serverPath, newMZ)
+		err = newMZ.Call(context.Background(), fun, &nextArgs, &replyX)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	Result := make(map[string]interface{})
+	err = json.Unmarshal(replyX.Data.([]byte), &Result)
+	if err != nil {
+		return nil, errors.New("RPC请求结果解析失败")
+	}
+	return &Result, nil
+}
