@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"reflect"
 )
 
 // HTTPGet GET请求
@@ -23,7 +25,7 @@ func HTTPGet(uri string) ([]byte, error) {
 	return io.ReadAll(response.Body)
 }
 
-// HTTPGet GET请求
+// HTTPGetComplex GET请求
 func HTTPGetComplex(uri string, param map[string]interface{}, header map[string]string) ([]byte, error) {
 	client := &http.Client{}
 
@@ -34,10 +36,17 @@ func HTTPGetComplex(uri string, param map[string]interface{}, header map[string]
 			if inx != 1 {
 				uri += `&`
 			}
-			uri += fmt.Sprintf("%v=%v", k, v)
+			if reflect.TypeOf(v).Kind() == reflect.Map {
+				b, _ := json.Marshal(v)
+				uri += fmt.Sprintf("%v=%v", k, url.QueryEscape(string(b)))
+			} else {
+				uri += fmt.Sprintf("%v=%v", k, v)
+			}
 			inx++
 		}
 	}
+
+	fmt.Println(uri)
 	//提交请求
 	request, err := http.NewRequest(http.MethodGet, uri, nil)
 	if err != nil {
