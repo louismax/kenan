@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/http"
 
 	"github.com/kataras/iris/v12"
 	"github.com/smallnest/rpcx/client"
@@ -35,6 +36,17 @@ func (app *Router) ReturnToClientMap(m1 *map[string]interface{}, statusCode ...i
 	if err := app.Ctx.JSON(&m1); err != nil {
 		app.Ctx.StatusCode(iris.StatusRequestTimeout)
 	}
+}
+
+func (app *Router) ReturnSSEMessage(m []byte, flusher http.Flusher) {
+	_, _ = app.Ctx.Writef("data: %s\n\n", m)
+	flusher.Flush()
+}
+
+func (app *Router) ReturnSSEResult(m *map[string]interface{}, flusher http.Flusher) {
+	_, _ = app.Ctx.Writef("event: result\n")
+	_, _ = app.Ctx.Writef("data: %s\n\n", app.UseComplicated(m))
+	flusher.Flush()
 }
 
 func ReturnErrorMap(ack int, msg string) *map[string]interface{} {
@@ -98,7 +110,7 @@ func (app *Router) CallServiceReply(serverPath, fun string, session map[string]i
 
 	return &replyX, nil
 }
-func (app *Router) CallBidirectionalService(serverPath, fun string, session map[string]interface{}, data interface{},msgChan chan<- *protocol.Message) (client.XClient,*map[string]interface{}, error){
+func (app *Router) CallBidirectionalService(serverPath, fun string, session map[string]interface{}, data interface{}, msgChan chan<- *protocol.Message) (client.XClient, *map[string]interface{}, error) {
 	var err error
 
 	var nextArgs Args
@@ -107,10 +119,10 @@ func (app *Router) CallBidirectionalService(serverPath, fun string, session map[
 	nextArgs.Session = session
 	nextArgs.Data = data
 
-	xCli, err := RpcNewBidirectionalClient(serverPath,msgChan)
+	xCli, err := RpcNewBidirectionalClient(serverPath, msgChan)
 	if err != nil {
 		LogError("客户端注册失败,err:%+v", err)
-		return nil, nil,err
+		return nil, nil, err
 	}
 	var replyX Reply
 
@@ -118,13 +130,13 @@ func (app *Router) CallBidirectionalService(serverPath, fun string, session map[
 	if err != nil {
 		LogError("Call服务异常,err: %+v", err)
 		xCli.Close()
-		return nil,nil, err
+		return nil, nil, err
 	}
 	Result := make(map[string]interface{})
 	err = json.Unmarshal(replyX.Data.([]byte), &Result)
 	if err != nil {
 		xCli.Close()
-		return nil,nil, errors.New("RPC请求结果解析失败")
+		return nil, nil, errors.New("RPC请求结果解析失败")
 	}
 	return xCli, &Result, nil
 }
@@ -229,4 +241,13 @@ func (app *Router) CallServiceData(serverPath, fun string, session map[string]in
 		return nil, errors.New("RPC请求结果解析失败")
 	}
 	return &Result, nil
+}
+
+// UseComplicated 复杂对象转为[]byte
+func (app *Router) UseComplicated(body interface{}) []byte {
+	jsons, errs := json.Marshal(body) //转换成JSON返回的是byte[]
+	if errs != nil {
+		LogError("json转移失败,err:%+v", errs)
+	}
+	return jsons
 }
