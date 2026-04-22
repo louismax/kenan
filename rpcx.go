@@ -18,6 +18,7 @@ import (
 	"github.com/rpcxio/rpcx-etcd/serverplugin"
 	"github.com/smallnest/rpcx/client"
 	"github.com/smallnest/rpcx/server"
+	"github.com/smallnest/rpcx/protocol"
 	rpcPlugin "github.com/smallnest/rpcx/serverplugin"
 )
 
@@ -25,6 +26,7 @@ var (
 	etcdBasePath *string //ETCD 注册路径前缀
 	etcdURL      *string //ETCD 注册中心
 	svrName      *string //微服务节点前缀
+	RpcxSvr *server.Server //当前服务
 )
 
 // RpcMapSync 线程安全的Rpc客户端实例map
@@ -89,7 +91,7 @@ func RegisterMS(svrArity interface{}, port string, limits ...int64) error {
 	addr := flag.String("addr", kTool.GetInternal()+":"+port, "service address")
 	LogInfo("微服务注册在:tcp@%s", *addr)
 	//注册服务
-	s := server.NewServer()
+	RpcxSvr = server.NewServer()
 	r := &serverplugin.EtcdV3RegisterPlugin{
 		ServiceAddress: "tcp@" + *addr,
 		EtcdServers:    []string{*etcdURL},
@@ -101,20 +103,20 @@ func RegisterMS(svrArity interface{}, port string, limits ...int64) error {
 	if err != nil {
 		return err
 	}
-	s.Plugins.Add(r)
-	s.Plugins.Add(&ConnectionPlugin{})
+	RpcxSvr.Plugins.Add(r)
+	RpcxSvr.Plugins.Add(&ConnectionPlugin{})
 
 	if len(limits) == 2 && time.Duration(limits[0]) > 0 && limits[1] > 0 {
 		//限流器实现
 		rateLimiter := rpcPlugin.NewReqRateLimitingPlugin(time.Second, 1, true)
-		s.Plugins.Add(rateLimiter)
+		RpcxSvr.Plugins.Add(rateLimiter)
 	}
 
-	err = s.RegisterName(*svrName, svrArity, "")
+	err = RpcxSvr.RegisterName(*svrName, svrArity, "")
 	if err != nil {
 		return err
 	}
-	err = s.Serve("tcp", *addr)
+	err = RpcxSvr.Serve("tcp", *addr)
 	if err != nil {
 		return err
 	}
@@ -256,4 +258,38 @@ func (reply *Reply) ComplexAnalysis(headerObj interface{}) error {
 		return errors.New("headerObj必须是一个指针对象")
 	}
 	return json.Unmarshal(reply.Data.([]byte), &headerObj)
+}
+
+// RpcNewBidirectionalClient RPC双向客户端注册
+func RpcNewBidirectionalClient(node string,msgChan chan<- *protocol.Message) (client.XClient, error) {
+	var serverNode *string
+	if flag.Lookup("RPC_"+node) != nil {
+		temp := (*flag.Lookup("RPC_" + node)).Value.(flag.Getter).Get().(string)
+		serverNode = &temp
+	} else {
+		serverNode = flag.String("RPC_"+node, node, "Service Node - "+node)
+	}
+
+	d, err := etcdCli.NewEtcdV3Discovery(*etcdBasePath, *serverNode, []string{*etcdURL}, true, nil)
+	if err != nil {
+		return nil, err
+	}
+	option := client.DefaultOption
+	option.ConnectTimeout = 10 * time.Second //建立连接的超时时间
+
+	option.Heartbeat = true                    //启用心跳
+	option.HeartbeatInterval = 5 * time.Second //心跳检测间隔，5秒一次
+
+	// 内网环境可以设置较短的检测间隔
+	option.TCPKeepAlivePeriod = 120 * time.Second // 240秒探测
+
+	option.IdleTimeout = 0 // 禁用空闲超时
+
+	option.Retries = 3 // 失败重试次数
+	//断路器实现
+	option.GenBreaker = func() client.Breaker {
+		return client.NewConsecCircuitBreaker(uint64(GetConfigDefaultByInt("BreakerFuseCount", 30)), time.Duration(GetConfigDefaultByInt("BreakerRecoveryTimes", 10))*time.Second)
+	}
+
+	return client.NewBidirectionalXClient(*serverNode, client.Failover, client.RandomSelect, d, option,msgChan), nil
 }

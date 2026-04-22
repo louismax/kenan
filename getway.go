@@ -8,6 +8,7 @@ import (
 
 	"github.com/kataras/iris/v12"
 	"github.com/smallnest/rpcx/client"
+	"github.com/smallnest/rpcx/protocol"
 )
 
 type Router struct {
@@ -96,6 +97,36 @@ func (app *Router) CallServiceReply(serverPath, fun string, session map[string]i
 	}
 
 	return &replyX, nil
+}
+func (app *Router) CallBidirectionalService(serverPath, fun string, session map[string]interface{}, data interface{},msgChan chan<- *protocol.Message) (client.XClient,*map[string]interface{}, error){
+	var err error
+
+	var nextArgs Args
+
+	nextArgs.HttpHeader = app.Ctx.Request().Header
+	nextArgs.Session = session
+	nextArgs.Data = data
+
+	xCli, err := RpcNewBidirectionalClient(serverPath,msgChan)
+	if err != nil {
+		LogError("客户端注册失败,err:%+v", err)
+		return nil, nil,err
+	}
+	var replyX Reply
+
+	err = xCli.Call(context.Background(), fun, &nextArgs, &replyX)
+	if err != nil {
+		LogError("Call服务异常,err: %+v", err)
+		xCli.Close()
+		return nil,nil, err
+	}
+	Result := make(map[string]interface{})
+	err = json.Unmarshal(replyX.Data.([]byte), &Result)
+	if err != nil {
+		xCli.Close()
+		return nil,nil, errors.New("RPC请求结果解析失败")
+	}
+	return xCli, &Result, nil
 }
 
 func (app *Router) CallService(serverPath, fun string, session map[string]interface{}) (*map[string]interface{}, error) {
