@@ -17,16 +17,16 @@ import (
 	etcdCli "github.com/rpcxio/rpcx-etcd/client"
 	"github.com/rpcxio/rpcx-etcd/serverplugin"
 	"github.com/smallnest/rpcx/client"
-	"github.com/smallnest/rpcx/server"
 	"github.com/smallnest/rpcx/protocol"
+	"github.com/smallnest/rpcx/server"
 	rpcPlugin "github.com/smallnest/rpcx/serverplugin"
 )
 
 var (
-	etcdBasePath *string //ETCD 注册路径前缀
-	etcdURL      *string //ETCD 注册中心
-	svrName      *string //微服务节点前缀
-	RpcxSvr *server.Server //当前服务
+	etcdBasePath *string        //ETCD 注册路径前缀
+	etcdURL      *string        //ETCD 注册中心
+	svrName      *string        //微服务节点前缀
+	RpcxSvr      *server.Server //当前服务
 )
 
 // RpcMapSync 线程安全的Rpc客户端实例map
@@ -202,7 +202,7 @@ func (args *Args) ReturnError(ack int, msg string, reply *Reply) error {
 	var rtn map[string]interface{}
 	rtn = make(map[string]interface{})
 	rtn["Success"] = false
-	rtn["Result"] = ack
+	rtn["Code"] = ack
 	rtn["ErrorMessage"] = msg
 	data, err := json.Marshal(rtn)
 	if err != nil {
@@ -261,7 +261,7 @@ func (reply *Reply) ComplexAnalysis(headerObj interface{}) error {
 }
 
 // RpcNewBidirectionalClient RPC双向客户端注册
-func RpcNewBidirectionalClient(node string,msgChan chan<- *protocol.Message) (client.XClient, error) {
+func RpcNewBidirectionalClient(node string, msgChan chan<- *protocol.Message) (client.XClient, error) {
 	var serverNode *string
 	if flag.Lookup("RPC_"+node) != nil {
 		temp := (*flag.Lookup("RPC_" + node)).Value.(flag.Getter).Get().(string)
@@ -291,5 +291,5 @@ func RpcNewBidirectionalClient(node string,msgChan chan<- *protocol.Message) (cl
 		return client.NewConsecCircuitBreaker(uint64(GetConfigDefaultByInt("BreakerFuseCount", 30)), time.Duration(GetConfigDefaultByInt("BreakerRecoveryTimes", 10))*time.Second)
 	}
 
-	return client.NewBidirectionalXClient(*serverNode, client.Failover, client.RandomSelect, d, option,msgChan), nil
+	return client.NewBidirectionalXClient(*serverNode, client.Failover, client.RandomSelect, d, option, msgChan), nil
 }

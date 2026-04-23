@@ -36,7 +36,8 @@ func HTTPGetComplex(uri string, param map[string]interface{}, header map[string]
 			if inx != 1 {
 				uri += `&`
 			}
-			if reflect.TypeOf(v).Kind() == reflect.Map {
+			//fmt.Println(reflect.TypeOf(v).Kind())
+			if reflect.TypeOf(v).Kind() == reflect.Map || reflect.TypeOf(v).Kind() == reflect.Slice {
 				b, _ := json.Marshal(v)
 				uri += fmt.Sprintf("%v=%v", k, url.QueryEscape(string(b)))
 			} else {
