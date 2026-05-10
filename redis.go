@@ -53,6 +53,14 @@ func OpenRedis(param RCParam) (*RedisClass, error) {
 	}
 }
 
+func (c *RedisClass) ExistsKey(key string) bool {
+	if c.cache.Exists(c.ctx, key).Val() == 1 {
+		return true
+	} else {
+		return false
+	}
+}
+
 // ExistsStringKey 更优雅的检查string类型 key 是否存在
 func (c *RedisClass) ExistsStringKey(key string) bool {
 	if c.cache.Get(c.ctx, key).Val() != "" {
@@ -69,6 +77,14 @@ func (c *RedisClass) ExistsHashKey(key string) bool {
 	} else {
 		return false
 	}
+}
+
+func (c *RedisClass) GetByte(key string) []byte {
+	res, err := c.cache.Get(c.ctx, key).Bytes()
+	if err != nil {
+		return nil
+	}
+	return res
 }
 
 // GetString 获取KEY
@@ -100,6 +116,11 @@ func (c *RedisClass) SetString(key string, val string) error {
 
 func (c *RedisClass) SetNX(key, val string, expiration time.Duration) (bool, error) {
 	return c.cache.SetNX(c.ctx, key, val, expiration).Result()
+}
+
+func (c *RedisClass) SetByteExpire(key string, val []byte, expiration time.Duration) error {
+	err := c.cache.Set(c.ctx, key, val, expiration).Err()
+	return err
 }
 
 // SetStringExpire 设置KEY值
