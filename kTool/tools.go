@@ -15,6 +15,10 @@ import (
 	"time"
 )
 
+func InterfaceToJsonStr(value interface{}) string{
+	r,_ := json.Marshal(value)
+	return string(r)
+}
 // InterfaceToStr interface{} 转 string
 func InterfaceToStr(value interface{}) string {
 	// interface 转 string
