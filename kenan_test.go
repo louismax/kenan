@@ -77,3 +77,15 @@ func TestHttpPost1(t *testing.T) {
 	}
 	t.Log(string(resp))
 }
+
+func TestHTTPGetComplex(t *testing.T) {
+	resp, err := kTool.HTTPGetComplex("https://ad.oceanengine.com/open_api/2/advertiser/info/", map[string]interface{}{
+		"advertiser_ids": []int64{1860008458176522},
+	}, map[string]string{
+		"Access-Token": "39917abf0e2807cb22bacb875da3faa3ea2ee22e",
+	})
+	if err != nil {
+		t.Error(err)
+	}
+	t.Log(string(resp))
+}
