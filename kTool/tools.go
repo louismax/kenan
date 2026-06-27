@@ -15,10 +15,11 @@ import (
 	"time"
 )
 
-func InterfaceToJsonStr(value interface{}) string{
-	r,_ := json.Marshal(value)
+func InterfaceToJsonStr(value interface{}) string {
+	r, _ := json.Marshal(value)
 	return string(r)
 }
+
 // InterfaceToStr interface{} 转 string
 func InterfaceToStr(value interface{}) string {
 	// interface 转 string
@@ -394,4 +395,10 @@ func GetPageIndexSize(pageIndex, pageSize int) (int, int) {
 	}
 	pageIndex = (pageIndex - 1) * pageSize
 	return pageIndex, pageSize
+}
+
+func Decimal(value float64) float64 {
+	// 使用fmt.Sprintf保留两位小数，然后转换为float64
+	value, _ = strconv.ParseFloat(fmt.Sprintf("%.2f", value), 64)
+	return value
 }
