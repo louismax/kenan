@@ -85,10 +85,7 @@ func newLfsLogHook() logrus.Hook {
 
 	maxAge := 72 * time.Hour
 
-	writer, err := rotateLogs.New(
-		settings.LogFilePath+"_%Y%m%d"+".log",
-		// WithLinkName为最新的日志建立软连接,以方便随着找到当前日志文件
-		rotateLogs.WithLinkName(settings.LogFilePath),
+	options := []rotateLogs.Option{
 		// WithRotationTime设置日志分割的时间,这里设置为一小时分割一次
 		rotateLogs.WithRotationTime(rotationTime), // 日志切割时间间隔
 		// WithMaxAge和WithRotationCount二者只能设置一个,
@@ -97,6 +94,15 @@ func newLfsLogHook() logrus.Hook {
 		rotateLogs.WithMaxAge(maxAge),
 		//rotateLogs.WithRotationCount(maxRemainCnt),
 		//rotateLogs.WithMaxAge(time.Minute), // 文件最大保存时间
+	}
+	if runtime.GOOS != "windows" {
+		// WithLinkName为最新的日志建立软连接,以方便随着找到当前日志文件
+		options = append(options, rotateLogs.WithLinkName(settings.LogFilePath))
+	}
+
+	writer, err := rotateLogs.New(
+		settings.LogFilePath+"_%Y%m%d"+".log",
+		options...,
 	)
 	if err != nil {
 		logrus.Errorf("config local file system for logger error: %v", err)
