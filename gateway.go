@@ -17,6 +17,16 @@ type Router struct {
 	Ctx iris.Context
 }
 
+// setSession 将任意会话对象统一编码为 RPC 可传输的字节数据，并保留旧版 map 会话供现有服务读取。
+func setSession(args *Args, session interface{}) {
+	if session == nil {
+		return
+	}
+	sessionData := args.UseComplicated(session)
+	args.SessionData = sessionData
+	args.Session = kTool.InterfaceToMapStringInterface(sessionData)
+}
+
 func (app *Router) CreateNewLink(ctx iris.Context) error {
 	app.Ctx = ctx
 	return nil
@@ -74,8 +84,7 @@ func (app *Router) CallServiceReply(serverPath, fun string, session interface{})
 	var nextArgs Args
 
 	nextArgs.HttpHeader = app.Ctx.Request().Header
-	nextArgs.SessionData = nextArgs.UseComplicated(session)
-	nextArgs.Session = kTool.InterfaceToMapStringInterface(session)
+	setSession(&nextArgs, session)
 	nextArgs.Data, _ = io.ReadAll(app.Ctx.Request().Body)
 
 	var mz client.XClient
@@ -118,8 +127,7 @@ func (app *Router) CallBidirectionalService(serverPath, fun string, session inte
 	var nextArgs Args
 
 	nextArgs.HttpHeader = app.Ctx.Request().Header
-	nextArgs.SessionData = nextArgs.UseComplicated(session)
-	nextArgs.Session = kTool.InterfaceToMapStringInterface(session)
+	setSession(&nextArgs, session)
 	nextArgs.Data = data
 
 	xCli, err := RpcNewBidirectionalClient(serverPath, msgChan)
@@ -150,8 +158,7 @@ func (app *Router) CallService(serverPath, fun string, session interface{}) (*ma
 	var nextArgs Args
 
 	nextArgs.HttpHeader = app.Ctx.Request().Header
-	nextArgs.SessionData = nextArgs.UseComplicated(session)
-	nextArgs.Session = kTool.InterfaceToMapStringInterface(session)
+	setSession(&nextArgs, session)
 
 	nextArgs.Data, _ = io.ReadAll(app.Ctx.Request().Body)
 	if len(nextArgs.Data.([]byte)) == 0 {
@@ -204,8 +211,7 @@ func (app *Router) CallServiceData(serverPath, fun string, session interface{}, 
 	var nextArgs Args
 
 	nextArgs.HttpHeader = app.Ctx.Request().Header
-	nextArgs.SessionData = nextArgs.UseComplicated(session)
-	nextArgs.Session = kTool.InterfaceToMapStringInterface(session)
+	setSession(&nextArgs, session)
 	nextArgs.Data = data
 
 	var mz client.XClient
