@@ -33,9 +33,10 @@ var (
 var RpcMapSync sync.Map
 
 type Args struct {
-	HttpHeader http.Header
-	Session    map[string]interface{}
-	Data       interface{}
+	HttpHeader  http.Header
+	SessionData interface{} //任意类型的session
+	Session     map[string]interface{}
+	Data        interface{}
 }
 
 type Reply struct {
@@ -127,6 +128,7 @@ func (args *Args) CallService(node, fun string, data interface{}) (*Reply, error
 	var err error
 	var nextArgs Args
 	nextArgs.HttpHeader = args.HttpHeader
+	nextArgs.SessionData = args.SessionData
 	nextArgs.Session = args.Session
 	nextArgs.Data = data
 
@@ -292,4 +294,14 @@ func RpcNewBidirectionalClient(node string, msgChan chan<- *protocol.Message) (c
 	}
 
 	return client.NewBidirectionalXClient(*serverNode, client.Failover, client.RandomSelect, d, option, msgChan), nil
+}
+
+func (args *Args) GetSession(headerObj interface{}) error {
+	if reflect.TypeOf(headerObj).Kind() != reflect.Ptr {
+		return errors.New("headerObj必须是一个指针对象")
+	}
+	if args.SessionData == nil {
+		return errors.New("SessionData为空！")
+	}
+	return json.Unmarshal(args.SessionData.([]byte), &headerObj)
 }

@@ -8,6 +8,7 @@ import (
 	"net/http"
 
 	"github.com/kataras/iris/v12"
+	"github.com/louismax/kenan/kTool"
 	"github.com/smallnest/rpcx/client"
 	"github.com/smallnest/rpcx/protocol"
 )
@@ -68,12 +69,13 @@ func ReturnSuccessMap(d interface{}) *map[string]interface{} {
 	return &rtn
 }
 
-func (app *Router) CallServiceReply(serverPath, fun string, session map[string]interface{}) (*Reply, error) {
+func (app *Router) CallServiceReply(serverPath, fun string, session interface{}) (*Reply, error) {
 	var err error
 	var nextArgs Args
 
 	nextArgs.HttpHeader = app.Ctx.Request().Header
-	nextArgs.Session = session
+	nextArgs.SessionData = nextArgs.UseComplicated(session)
+	nextArgs.Session = kTool.InterfaceToMapStringInterface(session)
 	nextArgs.Data, _ = io.ReadAll(app.Ctx.Request().Body)
 
 	var mz client.XClient
@@ -110,13 +112,14 @@ func (app *Router) CallServiceReply(serverPath, fun string, session map[string]i
 
 	return &replyX, nil
 }
-func (app *Router) CallBidirectionalService(serverPath, fun string, session map[string]interface{}, data interface{}, msgChan chan<- *protocol.Message) (client.XClient, *map[string]interface{}, error) {
+func (app *Router) CallBidirectionalService(serverPath, fun string, session interface{}, data interface{}, msgChan chan<- *protocol.Message) (client.XClient, *map[string]interface{}, error) {
 	var err error
 
 	var nextArgs Args
 
 	nextArgs.HttpHeader = app.Ctx.Request().Header
-	nextArgs.Session = session
+	nextArgs.SessionData = nextArgs.UseComplicated(session)
+	nextArgs.Session = kTool.InterfaceToMapStringInterface(session)
 	nextArgs.Data = data
 
 	xCli, err := RpcNewBidirectionalClient(serverPath, msgChan)
@@ -141,13 +144,14 @@ func (app *Router) CallBidirectionalService(serverPath, fun string, session map[
 	return xCli, &Result, nil
 }
 
-func (app *Router) CallService(serverPath, fun string, session map[string]interface{}) (*map[string]interface{}, error) {
+func (app *Router) CallService(serverPath, fun string, session interface{}) (*map[string]interface{}, error) {
 	var err error
 
 	var nextArgs Args
 
 	nextArgs.HttpHeader = app.Ctx.Request().Header
-	nextArgs.Session = session
+	nextArgs.SessionData = nextArgs.UseComplicated(session)
+	nextArgs.Session = kTool.InterfaceToMapStringInterface(session)
 
 	nextArgs.Data, _ = io.ReadAll(app.Ctx.Request().Body)
 	if len(nextArgs.Data.([]byte)) == 0 {
@@ -194,13 +198,14 @@ func (app *Router) CallService(serverPath, fun string, session map[string]interf
 	return &Result, nil
 }
 
-func (app *Router) CallServiceData(serverPath, fun string, session map[string]interface{}, data interface{}) (*map[string]interface{}, error) {
+func (app *Router) CallServiceData(serverPath, fun string, session interface{}, data interface{}) (*map[string]interface{}, error) {
 	var err error
 
 	var nextArgs Args
 
 	nextArgs.HttpHeader = app.Ctx.Request().Header
-	nextArgs.Session = session
+	nextArgs.SessionData = nextArgs.UseComplicated(session)
+	nextArgs.Session = kTool.InterfaceToMapStringInterface(session)
 	nextArgs.Data = data
 
 	var mz client.XClient

@@ -402,3 +402,20 @@ func Decimal(value float64) float64 {
 	value, _ = strconv.ParseFloat(fmt.Sprintf("%.2f", value), 64)
 	return value
 }
+
+func InterfaceToMapString(value interface{}) map[string]string {
+	result := make(map[string]string)
+	for k, v := range InterfaceToMapStringInterface(value) {
+		result[k] = InterfaceToStr(v)
+	}
+	return result
+}
+
+func InterfaceToMapStringInterface(value interface{}) map[string]interface{} {
+	cilData := make(map[string]interface{})
+	err := json.Unmarshal(value.([]byte), &cilData)
+	if err != nil {
+		return nil
+	}
+	return cilData
+}
